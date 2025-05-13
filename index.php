@@ -34,7 +34,7 @@ if (isset($_SESSION['user_id'])) {
       <a href="cabinet.php">Личный кабинет</a>
       <a href="dashboard.php">Доска файлов</a>
       <?php if (!empty($_SESSION['is_admin']) && $_SESSION['is_admin'] == 1): ?>
-        <a href="admin/admin.php">Admin Panel</a>
+        <a href="admin.php">Admin Panel</a>
       <?php endif; ?>
       <a href="logout.php">Выйти (<?= htmlspecialchars($_SESSION['username'] ?? 'User', ENT_QUOTES) ?>)</a>
     <?php endif; ?>

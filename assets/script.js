@@ -251,3 +251,9 @@ function showMessage(msg, type) {
         messageBox.classList.remove('visible');
     }, 5000);
 }
+
+
+window.addEventListener('scroll', () => {
+    const scrollY = window.scrollY;
+    document.documentElement.style.setProperty('--scroll-offset', scrollY * 0.5);
+});

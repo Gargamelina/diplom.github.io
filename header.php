@@ -3,7 +3,7 @@ session_start();
 
 // Проверка, что пользователь администратор
 if (!isset($_SESSION['is_admin']) || $_SESSION['is_admin'] != 1) {
-    header("Location: ../login.php");
+    header("Location: login.php");
     exit();
 }
 ?>
@@ -45,21 +45,25 @@ if (!isset($_SESSION['is_admin']) || $_SESSION['is_admin'] != 1) {
     </style>
 </head>
 <body>
-<header class="admin-header">
-    <div class="logo">
-        <a href="admin.php" style="color: #fff;">Админ Панель</a>
-    </div>
-    <nav>
-        <a href="orders.php">Заказы</a>
-        <a href="files.php">Файлы</a>
-        <a href="users.php">Пользователи</a>
-        <a href="admin.php">Главная</a>
-        <a href="invoices.php">PDF накладные</a>
-    </nav>
-    <div class="user-info">
-        Добро пожаловать, <?= htmlspecialchars($_SESSION['username'] ?? "Администратор", ENT_QUOTES) ?> |
-        <a href="../logout.php" style="color: #ff4444;">Выйти</a>
-    </div>
+<header class="site-header">
+  <div class="logo">
+    <a href="index.php" aria-label="На главную">LOGO</a>
+  </div>
+  <nav class="nav-menu">
+    <a href="index.php">Главная</a>
+    <a href="catalog.php">Каталог мебели</a>
+    <?php if (empty($_SESSION['user_id'])): ?>
+      <a href="login.php">Вход</a>
+      <a href="register.php">Регистрация</a>
+    <?php else: ?>
+      <a href="cabinet.php">Личный кабинет</a>
+      <a href="dashboard.php">Доска файлов</a>
+      <?php if (!empty($_SESSION['is_admin']) && $_SESSION['is_admin'] == 1): ?>
+        <a href="admin.php">Admin Panel</a>
+      <?php endif; ?>
+      <a href="logout.php">Выйти (<?= htmlspecialchars($_SESSION['username'] ?? 'User', ENT_QUOTES) ?>)</a>
+    <?php endif; ?>
+  </nav>
 </header>
 <!-- Левая часть шаблона: контент админ-панели начинается ниже -->
 <div class="admin-content">

@@ -1,4 +1,3 @@
-
 <?php
 session_start();
 require 'config.php';
@@ -93,262 +92,234 @@ $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
 ?>
 <!DOCTYPE html>
 <html lang="ru">
+
 <head>
   <meta charset="UTF-8">
   <title>Админ Панель</title>
   <link rel="stylesheet" href="assets/styles.css">
-  <style>
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-bottom: 20px;
-      background: #333;
-      color: #fff;
-    }
-    table th, table td {
-      padding: 8px;
-      border: 1px solid #555;
-      text-align: center;
-    }
-    table th {
-      background-color: #444;
-    }
-    .pdf-btn, .delete-order-btn {
-      padding: 5px 10px;
-      background-color: #007bff;
-      color: #fff;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      margin: 2px;
-    }
-    .pdf-btn:hover, .delete-order-btn:hover {
-      background-color: #0056b3;
-    }
-    /* Простейший спиннер загрузки */
-    .spinner {
-      display: inline-block;
-      width: 16px;
-      height: 16px;
-      border: 2px solid #f3f3f3;
-      border-top: 2px solid #007bff;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-      margin-left: 5px;
-    }
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-  </style>
 </head>
+
 <body>
 
-<header class="site-header">
-  <div class="logo">
-    <a href="index.php" aria-label="На главную">LOGO</a>
-  </div>
-  <nav class="nav-menu">
-    <a href="index.php">Главная</a>
-    <a href="catalog.php">Каталог мебели</a>
-    <?php if (empty($_SESSION['user_id'])): ?>
-      <a href="login.php">Вход</a>
-      <a href="register.php">Регистрация</a>
-    <?php else: ?>
-      <a href="cabinet.php">Личный кабинет</a>
-      <a href="dashboard.php">Доска файлов</a>
-      <?php if (!empty($_SESSION['is_admin']) && $_SESSION['is_admin'] == 1): ?>
-        <a href="admin.php">Admin Panel</a>
+  <header class="site-header">
+    <div class="logo">
+      <a href="index.php" aria-label="На главную">LOGO</a>
+    </div>
+    <nav class="nav-menu">
+      <a href="index.php">Главная</a>
+      <a href="catalog.php">Каталог мебели</a>
+      <?php if (empty($_SESSION['user_id'])): ?>
+        <a href="login.php">Вход</a>
+        <a href="register.php">Регистрация</a>
+      <?php else: ?>
+        <a href="cabinet.php">Личный кабинет</a>
+        <a href="dashboard.php">Доска файлов</a>
+        <?php if (!empty($_SESSION['is_admin']) && $_SESSION['is_admin'] == 1): ?>
+          <a href="admin.php">Admin Panel</a>
+        <?php endif; ?>
+        <a href="logout.php">Выйти (<?= htmlspecialchars($_SESSION['username'] ?? 'User', ENT_QUOTES) ?>)</a>
       <?php endif; ?>
-      <a href="logout.php">Выйти (<?= htmlspecialchars($_SESSION['username'] ?? 'User', ENT_QUOTES) ?>)</a>
+    </nav>
+  </header>
+<video class="video-background" autoplay loop muted>
+        <source src="assets/video/vecteezy_abstract-digital-particle-wave-and-light-cyber-or-technology_9271722.mp4" type="video/mp4">
+        Ваш браузер не поддерживает видео.
+    </video>
+  <div class="container">
+    <h1>Админ Панель</h1>
+    <?php if (isset($_SESSION['admin_message'])): ?>
+      <p><?php echo $_SESSION['admin_message'];
+          unset($_SESSION['admin_message']); ?></p>
     <?php endif; ?>
-  </nav>
-</header>
 
-<div class="container">
-  <h1>Админ Панель</h1>
-  <?php if (isset($_SESSION['admin_message'])): ?>
-    <p><?php echo $_SESSION['admin_message']; unset($_SESSION['admin_message']); ?></p>
-  <?php endif; ?>
-
-  <h2>Заказы пользователей</h2>
-  <table>
-    <thead>
-      <tr>
-        <th>ID</th>
-        <th>Артикул</th>
-        <th>Название товара</th>
-        <th>Цена</th>
-        <th>Количество</th>
-        <th>ФИО</th>
-        <th>Телефон</th>
-        <th>Адрес</th>
-        <th>Дата заказа</th>
-        <th>Действия</th>
-      </tr>
-    </thead>
-    <tbody>
-      <?php if ($orders): ?>
-        <?php foreach ($orders as $order): ?>
+    <h2>Заказы пользователей</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Артикул</th>
+          <th>Название товара</th>
+          <th>Цена</th>
+          <th>Количество</th>
+          <th>ФИО</th>
+          <th>Телефон</th>
+          <th>Адрес</th>
+          <th>Дата заказа</th>
+          <th>Действия</th>
+        </tr>
+      </thead>
+      <tbody>
+        <?php if ($orders): ?>
+          <?php foreach ($orders as $order): ?>
+            <tr>
+              <td><?php echo htmlspecialchars($order['id']); ?></td>
+              <td><?php echo htmlspecialchars($order['article']); ?></td>
+              <td><?php echo htmlspecialchars($order['product_name'] ?? ''); ?></td>
+              <td><?php echo htmlspecialchars($order['price'] ?? ''); ?></td>
+              <td><?php echo htmlspecialchars($order['quantity'] ?? '1'); ?></td>
+              <td><?php echo htmlspecialchars($order['customer_name']); ?></td>
+              <td><?php echo htmlspecialchars($order['phone']); ?></td>
+              <td><?php echo htmlspecialchars($order['address'] ?? ''); ?></td>
+              <td><?php echo htmlspecialchars($order['created_at'] ?? ''); ?></td>
+              <td style="text-align: right;">
+                <button class="pdf-btn" onclick="generatePDF(<?= htmlspecialchars($order['id']) ?>)">Сгенерировать PDF</button>
+                <span id="spinner_<?= htmlspecialchars($order['id']) ?>" style="display:none;" class="spinner"></span>
+                <form method="post" style="display:inline;">
+                  <input type="hidden" name="action" value="delete_order">
+                  <input type="hidden" name="order_id" value="<?php echo htmlspecialchars($order['id']); ?>">
+                  <button type="submit" class="delete-order-btn" onclick="return confirm('Удалить этот заказ?')">Удалить заказ</button>
+                </form>
+              </td>
+            </tr>
+          <?php endforeach; ?>
+        <?php else: ?>
           <tr>
-            <td><?php echo htmlspecialchars($order['id']); ?></td>
-            <td><?php echo htmlspecialchars($order['article']); ?></td>
-            <td><?php echo htmlspecialchars($order['product_name'] ?? ''); ?></td>
-            <td><?php echo htmlspecialchars($order['price'] ?? ''); ?></td>
-            <td><?php echo htmlspecialchars($order['quantity'] ?? '1'); ?></td>
-            <td><?php echo htmlspecialchars($order['customer_name']); ?></td>
-            <td><?php echo htmlspecialchars($order['phone']); ?></td>
-            <td><?php echo htmlspecialchars($order['address'] ?? ''); ?></td>
-            <td><?php echo htmlspecialchars($order['created_at'] ?? ''); ?></td>
-            <td style="text-align: right;">
-              <button class="pdf-btn" onclick="generatePDF(<?= htmlspecialchars($order['id']) ?>)">Сгенерировать PDF</button>
-              <span id="spinner_<?= htmlspecialchars($order['id']) ?>" style="display:none;" class="spinner"></span>
+            <td colspan="10">Заказы отсутствуют</td>
+          </tr>
+        <?php endif; ?>
+      </tbody>
+    </table>
+
+    <h2>Управление Файлами</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Имя файла</th>
+          <th>Загрузил</th>
+          <th>Описание</th>
+          <th>Действия</th>
+        </tr>
+      </thead>
+      <tbody>
+        <?php foreach ($files as $file): ?>
+          <tr>
+            <td><?php echo htmlspecialchars($file['id']); ?></td>
+            <td><?php echo htmlspecialchars($file['filename']); ?></td>
+            <td><?php echo htmlspecialchars($file['uploader']); ?></td>
+            <td><?php echo htmlspecialchars($file['description']); ?></td>
+            <td>
               <form method="post" style="display:inline;">
-                <input type="hidden" name="action" value="delete_order">
-                <input type="hidden" name="order_id" value="<?php echo htmlspecialchars($order['id']); ?>">
-                <button type="submit" class="delete-order-btn" onclick="return confirm('Удалить этот заказ?')">Удалить заказ</button>
+                <input type="hidden" name="action" value="delete_file">
+                <input type="hidden" name="file_id" value="<?php echo htmlspecialchars($file['id']); ?>">
+                <button type="submit">Удалить</button>
+              </form>
+              <form method="post" style="display:inline;">
+                <input type="hidden" name="action" value="update_file_description">
+                <input type="hidden" name="file_id" value="<?php echo htmlspecialchars($file['id']); ?>">
+                <input type="text" name="description" value="<?php echo htmlspecialchars($file['description']); ?>" placeholder="Новое описание">
+                <button type="submit">Сохранить</button>
               </form>
             </td>
           </tr>
         <?php endforeach; ?>
-      <?php else: ?>
-          <tr><td colspan="10">Заказы отсутствуют</td></tr>
-      <?php endif; ?>
-    </tbody>
-  </table>
+      </tbody>
+    </table>
 
-  <h2>Управление Файлами</h2>
-  <table>
-    <thead>
-      <tr>
-        <th>ID</th>
-        <th>Имя файла</th>
-        <th>Загрузил</th>
-        <th>Описание</th>
-        <th>Действия</th>
-      </tr>
-    </thead>
-    <tbody>
-      <?php foreach ($files as $file): ?>
+    <h2>Управление Пользователями</h2>
+    <table>
+      <thead>
         <tr>
-          <td><?php echo htmlspecialchars($file['id']); ?></td>
-          <td><?php echo htmlspecialchars($file['filename']); ?></td>
-          <td><?php echo htmlspecialchars($file['uploader']); ?></td>
-          <td><?php echo htmlspecialchars($file['description']); ?></td>
-          <td>
-            <form method="post" style="display:inline;">
-              <input type="hidden" name="action" value="delete_file">
-              <input type="hidden" name="file_id" value="<?php echo htmlspecialchars($file['id']); ?>">
-              <button type="submit">Удалить</button>
-            </form>
-            <form method="post" style="display:inline;">
-              <input type="hidden" name="action" value="update_file_description">
-              <input type="hidden" name="file_id" value="<?php echo htmlspecialchars($file['id']); ?>">
-              <input type="text" name="description" value="<?php echo htmlspecialchars($file['description']); ?>" placeholder="Новое описание">
-              <button type="submit">Сохранить</button>
-            </form>
-          </td>
+          <th>ID</th>
+          <th>Имя пользователя</th>
+          <th>Email</th>
+          <th>is_admin</th>
+          <th>Действия</th>
         </tr>
-      <?php endforeach; ?>
-    </tbody>
-  </table>
+      </thead>
+      <tbody>
+        <?php foreach ($users as $user): ?>
+          <tr>
+            <td><?php echo htmlspecialchars($user['id']); ?></td>
+            <td><?php echo htmlspecialchars($user['username']); ?></td>
+            <td><?php echo htmlspecialchars($user['email']); ?></td>
+            <td><?php echo htmlspecialchars($user['is_admin']); ?></td>
+            <td>
+              <form method="post" style="display:inline;">
+                <input type="hidden" name="action" value="delete_user">
+                <input type="hidden" name="user_id" value="<?php echo htmlspecialchars($user['id']); ?>">
+                <button type="submit">Удалить</button>
+              </form>
+              <form method="post" style="display:inline;">
+                <input type="hidden" name="action" value="update_username">
+                <input type="hidden" name="user_id" value="<?php echo htmlspecialchars($user['id']); ?>">
+                <input type="text" name="username" value="<?php echo htmlspecialchars($user['username']); ?>">
+                <button type="submit">Сохранить</button>
+              </form>
+            </td>
+          </tr>
+        <?php endforeach; ?>
+      </tbody>
+    </table>
 
-  <h2>Управление Пользователями</h2>
-  <table>
-    <thead>
-      <tr>
-        <th>ID</th>
-        <th>Имя пользователя</th>
-        <th>Email</th>
-        <th>is_admin</th>
-        <th>Действия</th>
-      </tr>
-    </thead>
-    <tbody>
-      <?php foreach ($users as $user): ?>
-        <tr>
-          <td><?php echo htmlspecialchars($user['id']); ?></td>
-          <td><?php echo htmlspecialchars($user['username']); ?></td>
-          <td><?php echo htmlspecialchars($user['email']); ?></td>
-          <td><?php echo htmlspecialchars($user['is_admin']); ?></td>
-          <td>
-            <form method="post" style="display:inline;">
-              <input type="hidden" name="action" value="delete_user">
-              <input type="hidden" name="user_id" value="<?php echo htmlspecialchars($user['id']); ?>">
-              <button type="submit">Удалить</button>
-            </form>
-            <form method="post" style="display:inline;">
-              <input type="hidden" name="action" value="update_username">
-              <input type="hidden" name="user_id" value="<?php echo htmlspecialchars($user['id']); ?>">
-              <input type="text" name="username" value="<?php echo htmlspecialchars($user['username']); ?>">
-              <button type="submit">Сохранить</button>
-            </form>
-          </td>
-        </tr>
-      <?php endforeach; ?>
-    </tbody>
-  </table>
-  
-  <!-- Новая секция: Список PDF-документов (накладных) -->
-  <h2>Список PDF-документов</h2>
-  <?php
+    <!-- Новая секция: Список PDF-документов (накладных) -->
+    <h2>Список PDF-документов</h2>
+    <?php
     // Получение списка накладных с данными заказа (имя клиента) через JOIN
     $invoicesStmt = $conn->query("SELECT i.invoice_number, i.pdf_path, i.created_at, o.customer_name FROM invoices i JOIN orders o ON i.order_id = o.id ORDER BY i.created_at DESC");
     $invoices = $invoicesStmt->fetchAll(PDO::FETCH_ASSOC);
-  ?>
-  <table>
-    <thead>
-      <tr>
-        <th>Номер накладной</th>
-        <th>Дата создания</th>
-        <th>Клиент</th>
-        <th>Скачать</th>
-      </tr>
-    </thead>
-    <tbody>
-      <?php if ($invoices): ?>
-        <?php foreach ($invoices as $inv): ?>
+    ?>
+    <table>
+      <thead>
+        <tr>
+          <th>Номер накладной</th>
+          <th>Дата создания</th>
+          <th>Клиент</th>
+          <th>Скачать</th>
+        </tr>
+      </thead>
+      <tbody>
+        <?php if ($invoices): ?>
+          <?php foreach ($invoices as $inv): ?>
+            <tr>
+              <td><?= htmlspecialchars($inv['invoice_number']) ?></td>
+              <td><?= htmlspecialchars($inv['created_at']) ?></td>
+              <td><?= htmlspecialchars($inv['customer_name']) ?></td>
+              <td>
+                <a href="admin/download_pdf.php?file=<?= urlencode(basename($inv['pdf_path'])) ?>&preview=1" target="_blank">Открыть</a>
+                <a href="admin/download_pdf.php?file=<?= urlencode(basename($inv['pdf_path'])) ?>" style="margin-left:8px;">Скачать</a>
+              </td>
+            </tr>
+          <?php endforeach; ?>
+        <?php else: ?>
           <tr>
-            <td><?= htmlspecialchars($inv['invoice_number']) ?></td>
-            <td><?= htmlspecialchars($inv['created_at']) ?></td>
-            <td><?= htmlspecialchars($inv['customer_name']) ?></td>
-            <td><a href="<?= htmlspecialchars($inv['pdf_path']) ?>" target="_blank">Скачать</a></td>
+            <td colspan="4">PDF-документы отсутствуют</td>
           </tr>
-        <?php endforeach; ?>
-      <?php else: ?>
-          <tr><td colspan="4">PDF-документы отсутствуют</td></tr>
-      <?php endif; ?>
-    </tbody>
-  </table>
-  
-<!-- Скрипт для AJAX вызова generate_pdf.php -->
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script>
-function generatePDF(orderId) {
-    // Показываем анимацию загрузки
-    var spinner = $('#spinner_' + orderId);
-    spinner.show();
-    
-    $.ajax({
-        type: "POST",
-        url: "admin/generate_pdf.php",
-        data: { order_id: orderId },
-        dataType: "json",
-        success: function(response) {
+        <?php endif; ?>
+      </tbody>
+    </table>
+
+    <!-- Скрипт для AJAX вызова generate_pdf.php -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+      function generatePDF(orderId) {
+        // Показываем анимацию загрузки
+        var spinner = $('#spinner_' + orderId);
+        spinner.show();
+
+        $.ajax({
+          type: "POST",
+          url: "admin/generate_pdf.php",
+          data: {
+            order_id: orderId
+          },
+          dataType: "json",
+          success: function(response) {
             spinner.hide();
-            if(response.status === "success") {
-                alert("PDF накладная успешно создана. Путь: " + response.pdf_path);
-                location.reload();
+            if (response.status === "success") {
+              alert("PDF накладная успешно создана. Путь: " + response.pdf_path);
+              location.reload();
             } else {
-                alert("Ошибка: " + response.message);
+              alert("Ошибка: " + response.message);
             }
-        },
-        error: function() {
+          },
+          error: function() {
             spinner.hide();
             alert("Ошибка при генерации PDF.");
-        }
-    });
-}
-</script>
+          }
+        });
+      }
+    </script>
 </body>
+
 </html>

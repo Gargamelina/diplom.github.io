@@ -1,9 +1,8 @@
 <?php
-// product.php
 require 'config.php';
+session_start();
 
-// Define products with multiple images for slider (ensure images exist under assets/images/)
-// Added price field for each product (matching catalog values)
+// Product data array...
 $products = [
     "CHAIR001"   => [
         "name"   => "Стул",
@@ -22,7 +21,6 @@ $products = [
             "assets/images/table/table2.jpg",
             "assets/images/table/table3.jpg",
             "assets/images/table/table4.jpg"
-
         ],
         "price"  => 5000
     ],
@@ -33,7 +31,6 @@ $products = [
             "assets/images/cabinet/cabinet2.jpg",
             "assets/images/cabinet/cabinet3.jpg",
             "assets/images/cabinet/cabinet4.jpg"
-
         ],
         "price"  => 15000
     ],
@@ -65,15 +62,11 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $address      = trim($_POST['address'] ?? '');
     $quantity     = isset($_POST['quantity']) ? (int)$_POST['quantity'] : 0;
 
-    // Validate all required fields including quantity must be at least 1
     if (!$customerName || !$phone || !$address || $quantity < 1) {
         $orderMessage = "Пожалуйста, заполните все поля, укажите адрес и количество (минимум 1).";
     } else {
-        // Insert order data into database.
-        // Inserts the product_name, price, and quantity based on the product's article.
         $stmt = $conn->prepare("INSERT INTO orders (article, product_name, price, quantity, customer_name, phone, address) VALUES (?, ?, ?, ?, ?, ?, ?)");
         if ($stmt->execute([$article, $product['name'], $product['price'], $quantity, $customerName, $phone, $address])) {
-            // Redirect to avoid re-submission if the page is refreshed.
             header("Location: product.php?article=" . urlencode($article) . "&order=success");
             exit();
         } else {
@@ -84,13 +77,12 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 ?>
 <!DOCTYPE html>
 <html lang="ru">
-
 <head>
     <meta charset="UTF-8">
     <title><?php echo htmlspecialchars($product['name']); ?></title>
     <link rel="stylesheet" href="assets/styles.css">
+    
 </head>
-
 <body>
     <header class="site-header">
         <div class="logo">
@@ -112,53 +104,64 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             <?php endif; ?>
         </nav>
     </header>
-
-    <div class="container">
-        <h1><?php echo htmlspecialchars($product['name']); ?></h1>
-        <!-- Product Image Slider -->
-        <div class="slider">
+    <div class="single-product-container">
+        <div class="product-slider-single">
             <div class="slides">
-                <?php foreach ($product['images'] as $img): ?>
-                    <img src="<?php echo htmlspecialchars($img); ?>" alt="<?php echo htmlspecialchars($product['name']); ?>">
+                <?php foreach ($product['images'] as $i=>$img): ?>
+                    <img src="<?php echo htmlspecialchars($img); ?>" alt="<?php echo htmlspecialchars($product['name']); ?>"
+                    class="<?php echo $i===0 ? 'active' : ''; ?>">
                 <?php endforeach; ?>
             </div>
-            <button class="prev" onclick="plusSlides(-1)">&#10094;</button>
-            <button class="next" onclick="plusSlides(1)">&#10095;</button>
+            <button class="slider-btn prev" onclick="moveSlide(-1)">&#10094;</button>
+            <button class="slider-btn next" onclick="moveSlide(1)">&#10095;</button>
         </div>
-
-        <p>Артикул: <?php echo htmlspecialchars($article); ?></p>
-        <p>Цена: <?php echo htmlspecialchars($product['price']); ?> руб.</p>
-
-        <form method="post">
-            <fieldset>
-                <legend>Оформление заказа</legend>
-                <label>
-                    ФИО:<br>
-                    <input type="text" name="customer_name" required>
-                </label><br><br>
-                <label>
-                    Номер телефона:<br>
-                    <input type="text" name="phone" required>
-                </label><br><br>
-                <label>
-                    Адрес доставки:<br>
-                    <input type="text" name="address" required>
-                </label><br><br>
-                <label>
-                    Количество товара:<br>
-                    <input type="number" name="quantity" min="1" value="1" required>
-                </label>
-            </fieldset>
-            <br>
+        <div class="single-product-info">
+            <h1><?php echo htmlspecialchars($product['name']); ?></h1>
+            <div class="product-price">
+                <?php echo htmlspecialchars($product['price']); ?> руб.
+            </div>
+            <p>Артикул: <?php echo htmlspecialchars($article); ?></p>
+        </div>
+        <form method="post" class="order-form" autocomplete="off">
+            <legend>Оформление заказа</legend>
+            <label>
+                ФИО:
+                <input type="text" name="customer_name" required>
+            </label>
+            <label>
+                Номер телефона:
+                <input type="text" name="phone" required>
+            </label>
+            <label>
+                Адрес доставки:
+                <input type="text" name="address" required>
+            </label>
+            <label>
+                Количество товара:
+                <input type="number" name="quantity" min="1" value="1" required>
+            </label>
             <button type="submit" class="btn">Оформить заказ</button>
+            <?php if ($orderMessage): ?>
+                <div class="order-feedback"><?php echo htmlspecialchars($orderMessage); ?></div>
+            <?php elseif (isset($_GET['order']) && $_GET['order'] === 'success'): ?>
+                <div class="order-feedback success">Ваш заказ успешно оформлен!</div>
+            <?php endif; ?>
         </form>
-        <?php if ($orderMessage): ?>
-            <p><?php echo htmlspecialchars($orderMessage); ?></p>
-        <?php elseif (isset($_GET['order']) && $_GET['order'] === 'success'): ?>
-            <p>Ваш заказ успешно оформлен!</p>
-        <?php endif; ?>
     </div>
-    <script src="assets/script.js"></script>
+    <script>
+        // JS-слайдер для карточки товара
+        (function(){
+            const slides = document.querySelectorAll('.product-slider-single .slides img');
+            let current = 0;
+            function showSlide(idx) {
+                slides[current].classList.remove('active');
+                current = (idx + slides.length) % slides.length;
+                slides[current].classList.add('active');
+            }
+            window.moveSlide = function(step) {
+                showSlide(current + step);
+            };
+        })();
+    </script>
 </body>
-
 </html>

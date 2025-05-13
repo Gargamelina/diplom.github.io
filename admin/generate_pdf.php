@@ -1,134 +1,170 @@
+
 <?php
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
+mb_internal_encoding('UTF-8');
+mb_http_output('UTF-8');
+
 session_start();
-require_once('../config.php'); // Подключение к базе
+require_once('../config.php');
+require_once('../vendor/autoload.php');
 
- // Подключаем автозагрузчик Composer для FPDI и FPDF
- require_once('../vendor/autoload.php');
- 
- use setasign\Fpdi\Fpdi; // Использование класса FPDI
- // Удалены require_once 'fpdf.php' и require_once 'fpdi.php', так как они подключаются через автолоадер
- error_log("generate_pdf.php: Запущен скрипт, проверка прав администратора.");
+use Mpdf\Mpdf;
+use Mpdf\Output\Destination;
 
+if (!isset($conn) || !$conn) {
+    die(json_encode(['status' => 'error', 'message' => 'Ошибка подключения к базе данных.']));
+}
 
-
-// Проверяем, что пользователь – администратор
 if (!isset($_SESSION['is_admin']) || $_SESSION['is_admin'] != 1) {
-    // Для AJAX можно вернуть JSON, здесь простое сообщение
-    die(json_encode(["status" => "error", "message" => "Access Denied. Admins only."]));
+    die(json_encode(['status' => 'error', 'message' => 'Доступ запрещён. Только для администраторов.']));
 }
 
-// Проверяем, что передан order_id
 if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !isset($_POST['order_id'])) {
-    error_log("generate_pdf.php: Неверный запрос или отсутствует order_id.");
-    die(json_encode(["status" => "error", "message" => "Invalid request."]));
+    die(json_encode(['status' => 'error', 'message' => 'Некорректный запрос.']));
 }
 
-$orderId = $_POST['order_id'];
-error_log("generate_pdf.php: Получен order_id = " . $orderId);
+$orderId = (int)$_POST['order_id'];
 
-// Получаем данные заказа из таблицы orders
+// Проверка, не существует ли уже накладная для этого заказа
+$stmt = $conn->prepare("SELECT * FROM invoices WHERE order_id = ?");
+$stmt->execute([$orderId]);
+if ($stmt->rowCount() > 0) {
+    die(json_encode(['status' => 'error', 'message' => 'Для этого заказа накладная уже существует.']));
+}
+
+// Основная информация о заказе
 $stmt = $conn->prepare("SELECT * FROM orders WHERE id = ?");
 $stmt->execute([$orderId]);
 $order = $stmt->fetch(PDO::FETCH_ASSOC);
 if (!$order) {
-    error_log("generate_pdf.php: Заказ с id " . $orderId . " не найден.");
-    die(json_encode(["status" => "error", "message" => "Order not found."]));
+    die(json_encode(['status' => 'error', 'message' => 'Заказ не найден.']));
 }
 
-// Получаем список товаров для заказа из таблицы order_items
+// Получаем товары из order_items
 $stmt = $conn->prepare("SELECT * FROM order_items WHERE order_id = ?");
 $stmt->execute([$orderId]);
 $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
-error_log("generate_pdf.php: Найдено товаров: " . count($items));
 
-// Определяем следующий номер накладной из таблицы invoices
+// Если в order_items нет записей, то используем order как 'товар' (под структуру вашей базы)
+if (empty($items)) {
+    $items[] = [
+        'product_name' => $order['product_name'],
+        'article'      => $order['article'],
+        'quantity'     => $order['quantity'],
+        'unit_price'   => $order['price'],
+    ];
+}
+
 $stmt = $conn->query("SELECT MAX(invoice_number) AS max_invoice FROM invoices");
 $row = $stmt->fetch(PDO::FETCH_ASSOC);
 $nextInvoiceNumber = ($row && $row['max_invoice']) ? $row['max_invoice'] + 1 : 1;
-error_log("generate_pdf.php: Следующий номер накладной: " . $nextInvoiceNumber);
 
-// Инициализируем FPDI и загружаем PDF-шаблон
-$pdf = new Fpdi();
-$pdf->AddPage();
-$templatePath = '../template.pdf'; // Используем готовый шаблон template.pdf
-if (!file_exists($templatePath)) {
-    error_log("generate_pdf.php: Файл шаблона не найден по пути: " . $templatePath);
-    die(json_encode(["status" => "error", "message" => "PDF template file not found."]));
-} else {
-    error_log("generate_pdf.php: Файл шаблона найден по пути: " . $templatePath);
-}
-$pageCount = $pdf->setSourceFile($templatePath);
-$tplIdx = $pdf->importPage(1);
-$pdf->useTemplate($tplIdx);
-$invoicesDir = realpath('../invoices');
-if (!$invoicesDir || !is_writable($invoicesDir)) {
-    error_log("generate_pdf.php: Каталог invoices отсутствует или недоступен для записи. Используем путь: " . '../invoices');
-    die(json_encode(["status" => "error", "message" => "Invoices directory missing or not writable."]));
-} else {
-    error_log("generate_pdf.php: Каталог invoices найден и доступен для записи: " . $invoicesDir);
-}
-
-// Устанавливаем шрифт и цвет текста
-$pdf->SetFont('Helvetica', '', 12);
-$pdf->SetTextColor(0, 0, 0);
-
-// Вставляем шапку накладной с данными заказа
-$pdf->SetXY(20, 30);
-$pdf->Write(0, "Накладная №: " . $nextInvoiceNumber);
-$pdf->SetXY(20, 40);
-$pdf->Write(0, "Клиент: " . $order['customer_name']);
-$pdf->SetXY(20, 50);
-$pdf->Write(0, "Телефон: " . $order['phone']);
-$pdf->SetXY(20, 60);
-$pdf->Write(0, "Дата заказа: " . $order['created_at']);
-
-// Вставляем заголовок таблицы с товарами
-$pdf->SetXY(20, 80);
-$pdf->Cell(50, 10, "Наименование", 0, 0);
-$pdf->Cell(30, 10, "Артикул", 0, 0);
-$pdf->Cell(20, 10, "Кол-во", 0, 0);
-$pdf->Cell(30, 10, "Цена", 0, 0);
-$pdf->Cell(30, 10, "Сумма", 0, 1);
-
-$y = 90;
+// Считаем итог
 $totalOrder = 0;
 foreach ($items as $item) {
-    $lineTotal = $item['quantity'] * $item['unit_price'];
-    $totalOrder += $lineTotal;
-    $pdf->SetXY(20, $y);
-    $pdf->Cell(50, 10, $item['product_name'], 0, 0);
-    $pdf->Cell(30, 10, $item['article'], 0, 0);
-    $pdf->Cell(20, 10, $item['quantity'], 0, 0);
-    $pdf->Cell(30, 10, number_format($item['unit_price'], 2), 0, 0);
-    $pdf->Cell(30, 10, number_format($lineTotal, 2), 0, 1);
-    $y += 10;
+    $totalOrder += $item['quantity'] * $item['unit_price'];
 }
-
-// Рассчитываем итоговую сумму, НДС (20%) и общую сумму к оплате
 $vat = $totalOrder * 0.20;
 $grandTotal = $totalOrder + $vat;
-$pdf->SetXY(20, $y + 10);
-$pdf->Write(0, "Итого: " . number_format($totalOrder, 2));
-$pdf->SetXY(20, $y + 20);
-$pdf->Write(0, "НДС 20%: " . number_format($vat, 2));
-$pdf->SetXY(20, $y + 30);
-$pdf->Write(0, "Всего к оплате: " . number_format($grandTotal, 2));
 
-// Задаем путь для сохранения сгенерированного PDF-файла
-$pdfPath = '../invoices/invoice_' . $nextInvoiceNumber . '.pdf';
-$pdf->Output('F', $pdfPath);
-error_log("generate_pdf.php: PDF успешно создан и сохранен по пути: " . $pdfPath);
+// Генерируем HTML-документ для PDF
+$html = '
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Накладная № ' . $nextInvoiceNumber . '</title>
+<style>
+body { font-family: DejaVu Sans, sans-serif; }
+table { width: 100%; border-collapse: collapse; margin-bottom: 20px;}
+td, th { border: 1px solid #bbb; padding: 6px 8px; font-size:13px; }
+th { background: #f6f6f6; }
+.header { font-size: 18px; margin: 10px 0 0 0; }
+.info { font-size: 13px; margin-bottom: 2px; }
+.right { text-align: right; }
+</style>
+</head>
+<body>
+<div class="header"><b>Накладная № ' . $nextInvoiceNumber . '</b></div>
+<div class="info">Клиент: ' . htmlspecialchars($order['customer_name']) . '</div>
+<div class="info">Телефон: ' . htmlspecialchars($order['phone']) . '</div>
+<div class="info">Адрес: ' . htmlspecialchars($order['address']) . '</div>
+<div class="info">Дата заказа: ' . date("d.m.Y", strtotime($order['created_at'])) . '</div>
+<br>
+<table>
+    <thead>
+        <tr>
+            <th>Наименование</th>
+            <th>Артикул</th>
+            <th>Кол-во</th>
+            <th>Цена</th>
+            <th>Сумма</th>
+        </tr>
+    </thead>
+    <tbody>';
 
-// Сохраняем информацию о сгенерированной накладной в таблице invoices
-$stmt = $conn->prepare("INSERT INTO invoices (order_id, invoice_number, pdf_path, created_at) VALUES (?, ?, ?, NOW())");
-$stmt->execute([$orderId, $nextInvoiceNumber, $pdfPath]);
-error_log("generate_pdf.php: Информация о накладной сохранена в базе данных.");
+foreach ($items as $item) {
+    $lineTotal = $item['quantity'] * $item['unit_price'];
+    $html .= '<tr>
+        <td>' . htmlspecialchars($item['product_name']) . '</td>
+        <td>' . htmlspecialchars($item['article']) . '</td>
+        <td class="right">' . (int)$item['quantity'] . '</td>
+        <td class="right">' . number_format($item['unit_price'], 2, ',', ' ') . '</td>
+        <td class="right">' . number_format($lineTotal, 2, ',', ' ') . '</td>
+    </tr>';
+}
 
-// Возвращаем JSON-ответ для AJAX (если необходимо)
-echo json_encode(["status" => "success", "message" => "PDF накладная успешно создана.", "pdf_path" => $pdfPath]);
-exit;
-?>
+$html .= '</tbody>
+</table>
+<table style="width:60%; margin-left:auto; font-size: 15px;">
+<tr><td class="right">Итого:</td><td class="right"><b>' . number_format($totalOrder, 2, ',', ' ') . '</b></td></tr>
+<tr><td class="right">НДС 20%:</td><td class="right"><b>' . number_format($vat, 2, ',', ' ') . '</b></td></tr>
+<tr><td class="right">Всего к оплате:</td><td class="right"><b>' . number_format($grandTotal, 2, ',', ' ') . '</b></td></tr>
+</table>
+</body>
+</html>
+';
+
+
+try {
+    $mpdf = new Mpdf([
+        'format' => 'A4',
+        'margin_top' => 40,
+        'margin_bottom' => 20,
+        'margin_left' => 12,
+        'margin_right' => 12,
+        'mode' => 'utf-8',
+        'default_font' => 'dejavusans',
+        'default_font_size' => 12,
+        'tempDir' => __DIR__ . '/../tmp',
+    ]);
+
+    $mpdf->autoScriptToLang = true;
+    $mpdf->autoLangToFont = true;
+    $mpdf->SetDisplayMode('fullpage');
+
+    $mpdf->WriteHTML($html);
+
+    $fileName = "../invoices/invoice_" . $nextInvoiceNumber . ".pdf";
+    $mpdf->Output($fileName, Destination::FILE);
+
+    $stmt = $conn->prepare("INSERT INTO invoices (order_id, invoice_number, pdf_path, created_at) VALUES (?, ?, ?, NOW())");
+    $stmt->execute([$orderId, $nextInvoiceNumber, $fileName]);
+
+    echo json_encode(['status' => 'success', 'message' => 'Накладная сгенерирована.', 'file' => $fileName]);
+} catch (\Throwable $e) { // Ловим ВСЕ ошибки, не только MpdfException
+    // Для отладки — видно весь текст, файл и строку, и trace!
+    $errorInfo = [
+        'status' => 'error',
+        'message' => 'Ошибка PDF: ' . $e->getMessage(),
+        'file' => $e->getFile(),
+        'line' => $e->getLine(),
+        'trace' => $e->getTraceAsString()
+    ];
+    // можно еще писать в лог, если нужно
+    // file_put_contents(__DIR__.'/pdf_error.log', print_r($errorInfo,1)."\n", FILE_APPEND);
+    echo json_encode($errorInfo);
+}
